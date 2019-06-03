@@ -66,17 +66,7 @@ TIM_HandleTypeDef htim2;
 DMA_HandleTypeDef hdma_tim2_ch2_ch4;
 
 /* USER CODE BEGIN PV */
-uint16_t test[] = {
-26, 26, 26, 26, 26, 26, 26, 26,
-65, 65, 65, 65, 65, 65, 65, 65,
-26, 26, 26, 26, 26, 26, 26, 26,
-26, 26, 26, 26, 26, 26, 26, 26,
-26, 26, 26, 26, 26, 26, 26, 26,
-65, 65, 65, 65, 65, 65, 65, 65,
-65, 65, 65, 65, 65, 65, 65, 65,
-26, 26, 26, 26, 26, 26, 26, 26,
-26, 26, 26, 26, 26, 26, 26, 26
-};
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -90,7 +80,26 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void start_dma_wrapper(void *ptr, uint16_t size)
+{
+  HAL_TIM_PWM_Start_DMA(&htim2, TIM_CHANNEL_2, ptr, size);
+}
 
+void stop_dma_wrapper()
+{
+  HAL_DMA_Abort_IT(&hdma_tim2_ch2_ch4);
+  HAL_TIM_PWM_Stop_DMA(&htim2, TIM_CHANNEL_2);
+}
+
+void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
+{
+  ws2812_interrupt();
+}
+
+void half_transfer_complete(DMA_HandleTypeDef *hdma)
+{
+  ws2812_interrupt();
+}
 /* USER CODE END 0 */
 
 /**
@@ -124,13 +133,17 @@ int main(void)
   MX_DMA_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_PWM_Start_DMA(&htim2, TIM_CHANNEL_2, (uint32_t *)&test, 48 + 24);
+  HAL_DMA_RegisterCallback(&hdma_tim2_ch2_ch4, HAL_DMA_XFER_HALFCPLT_CB_ID, half_transfer_complete);
+  ws2812_initialise(start_dma_wrapper, stop_dma_wrapper);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    ws2812_transfer_recurrent("0*lin+0;1...255", "0*lin+0;1...255", "0*lin+255;1...255",RGB,TR_ALL_LEDSTRIP);
+
+    HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
